@@ -1,0 +1,25 @@
+Package: CASC
+Type: Package
+Title: Covariate-assisted Spectural Clustering
+Version: 0.1.0
+Author: GAO Zheng, KIM Yura, YOO Hyesun,
+Maintainer: GAO Zheng <gaozheng@umich.edu>
+Description: This is an RCpp package implementing the covariate-assisted
+    spectural clustering detailed in Rohe (2016).
+License: MIT
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 5.0.1
+LinkingTo:
+    Rcpp
+Imports:
+    Rcpp,
+    Matrix,
+    RSpectra
+Depends:
+    Matrix
+Suggests: 
+    testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

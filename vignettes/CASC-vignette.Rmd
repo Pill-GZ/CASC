@@ -1,0 +1,221 @@
+---
+title: "Covariate-assisted Spectral Clustering"
+author: "Zheng GAO, Yura KIM, Hyesun YOO"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Covariate-assisted Spectral Clustering}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r include=FALSE}
+options(knitr.table.format = 'markdown')
+rm(list = ls())
+library(CASC)
+set.seed(2016)
+```
+
+
+## 1. Clustering on Simulated datasets
+
+We follow the setup in the original paper^[N. Binkiewicz et.al, Covariate-assisted spectral clustering, https://arxiv.org/pdf/1411.2158.pdf] and consider a stochastic block model with $K = 3$ blocks. Nodes in block $i$ are connected to nodes in block $j$ with probability $B_{ij}$ where $i,j\in\{1...K\}$. 
+
+
+### a. Assortative graph
+
+Assotative graph is where within cluster edge probability is higher than between cluster edge probabilities.
+
+We simulate an assortative graph with the follwing block connectivity probabilities:
+
+```{r}
+B <- matrix(c(.03,.015,.015,.015,.03,.015,.015,.015,.03), nrow=3)
+B
+```
+
+
+In addition, we simulate 3 Bernoulli covariates for each node: in the $k$th block, the $k$th covariate is equal to one with probability 0.8, and the probability of the other two covariates being one is 0.2; all covariates are independent.
+
+Our simulated covariates contrain a lot of information on community structure, and we expect the methods that make the use of this information perform better than the ones that do not.
+
+Here we load simulated assortative graph.
+
+```{r}
+load("../data/simul_assortative.Rdata")
+```
+
+#### Result with regularized Laplacian spectral clustering:
+
+```{r define a utility function to display table}
+
+formatTable <- function(tb) {
+  tb <- tb[,apply(tb,1,which.max)]
+  rownames(tb) <- paste("true cluster",1:3)
+  colnames(tb) <- paste("assigned",1:3)
+  tb
+}
+
+```
+
+```{r}
+res <- CASpecClust(A = adjMat, K = 3, n.alpha = 10,
+                   center = F, method = 1, randStarts = 20)
+tb <- table(c(rep(1,500),rep(2,500),rep(3,500)),res$cluster)
+(tb <- formatTable(tb))
+```
+
+Error rate:
+
+```{r}
+1 - sum(diag(tb))/sum(tb)
+```
+
+#### Result with assortative covariate-assisted spectral clustering: 
+
+```{r}
+res <- CASpecClust(A = adjMat, X = covMat, K = 3, n.alpha = 10,
+                   center = F, method = 2, randStarts = 20)
+tb <- table(c(rep(1,500),rep(2,500),rep(3,500)),res$cluster)
+(tb <- formatTable(tb))
+```
+
+Error rate:
+
+```{r}
+1 - sum(diag(tb))/sum(tb)
+```
+
+#### Result with non-assortative covariate-assisted spectral clustering:
+
+```{r}
+system.time(res <- CASpecClust(A = adjMat, X = covMat, K = 3, n.alpha = 10,
+                   center = F, method = 3, randStarts = 20))
+```
+
+It only takes less than 5 seconds with 1500 by 1500 sparse adjacency matrix!
+
+
+```{r}
+tb <- table(c(rep(1,500),rep(2,500),rep(3,500)),res$cluster)
+(tb <- formatTable(tb))
+```
+
+Error rate:
+
+```{r}
+1 - sum(diag(tb))/sum(tb)
+```
+
+
+As expected, assortative covariate assisted spectral clustering worked best followed by non-assortative covariate assisted spectral clustering and regularized spectral clustering.
+
+
+### b. Disassortative graph
+
+Disassotative graph is where within cluster edge probability is lower than between cluster edge probabilities.
+
+We also simulate an disassortative graph with the block probabilities,
+
+```{r}
+B <- matrix(c(.015,.03,.03,.03,.015,.03,.03,.03,.015), nrow=3)
+B
+```
+
+In addition, we simulate 3 Bernoulli covariates for each node: in the $k$th block, the $k$th covariate is equal to one with probability 0.8, and the probability of the other two covariates being one is 0.2; all covariates are independent.
+
+Let's load simulated disassortative graph following the above formulation.
+
+```{r}
+load("../data/simul_nonassortative.Rdata")
+```
+
+#### Result with regularized Laplacian spectral clustering:
+
+```{r}
+res <- CASpecClust(A = adjMat, K = 3, n.alpha = 10,
+                   center = F, method = 1,randStarts=20)
+tb <- table(c(rep(1,500),rep(2,500),rep(3,500)),res$cluster)
+(tb <- formatTable(tb))
+```
+
+Error rate:
+
+```{r}
+1 - sum(diag(tb))/sum(tb)
+```
+
+#### Result with assortative covariate-assisted spectral clustering:
+
+```{r}
+res <- CASpecClust(A = adjMat, X = covMat, K = 3, n.alpha = 10,
+                   center = F, method = 2, randStarts = 20)
+tb <- table(c(rep(1,500),rep(2,500),rep(3,500)),res$cluster)
+(tb <- formatTable(tb))
+```
+
+Error rate:
+
+```{r}
+1 - sum(diag(tb))/sum(tb)
+```
+
+#### Result with non-assortative covariate-assisted spectral clustering: 
+
+```{r}
+res <- CASpecClust(A = adjMat, X = covMat, K = 3, n.alpha = 10,
+                   center = F, method = 3, randStarts = 20)
+tb <- table(c(rep(1,500),rep(2,500),rep(3,500)),res$cluster)
+(tb <- formatTable(tb))
+```
+
+Error rate:
+
+```{r}
+1 - sum(diag(tb))/sum(tb)
+```
+
+
+As expected, non-assortative covariate assisted spectral clustering worked best followed by regularized spectral clustering and assortative covariate assisted spectral clustering. Since graph is disassortative, assortative covariate assisted spectral clustering is working poorly in above setting.
+
+## (2) Clustering on Friendship network dataset
+
+Now, we apply our code to the real data: friendship network of junior high or high school students. 
+
+Original network is a directed weighted network with edge weights 1 to 6. We convert this into symmetric binary network: edge if directed edge both ways. 
+
+The friendship network is encoded in the `adjMat` matrix; covariates, include the sex, race, and grade in school, are stored in the `covData` matrix.
+
+Sex is as a factor whose levels are "male" and "female". Race is a factor whose levels are "white", "hispanic", and "mixed/other". Grade is recorded as a factor whose levels are 6 to 12. See http://moreno.ss.uci.edu/data.html#adhealth for more details.
+
+We first convert the covariates to dummy variables using one-hot encoding.
+
+```{r}
+load("../data/friendshipNet.Rdata")
+covMat <- model.matrix( ~ -1 + Sex + Race + Grade, data = covData)[,-1]
+head(covMat)
+```
+
+Now we perform the clustering using assortative covariate-assisted spectral clustering.
+
+``````{r}
+res = CASpecClust(A = adjMat, X = covMat, K = 3, n.alpha = 10,
+                  center = F, method = 2, randStarts = 20)
+tb <- table(res$cluster, covData$Sex) #gender
+rownames(tb) <- paste("assigned cluster", 1:3); tb
+tb <- table(res$cluster, covData$Race) #race
+rownames(tb) <- paste("assigned cluster", 1:3); tb
+tb <- table(res$cluster, covData$Grade) #grade
+rownames(tb) <- paste("assigned cluster", 1:3); tb
+```
+
+If you look at the table above, it seems there is a community structure depending on grade. Cluster `r which.max(tb[,2])`: mostly 7th grader; cluster `r which.max(tb[,6])`: mostly 11th grader; cluster `r which.max(rowSums(tb))`: the others. Clustering without these information gives the results that are a little less interpretable. We can compare the result from spectral clustering with regularized Laplacian.
+
+```{r}
+res <- CASpecClust(A = adjMat, K = 3, n.alpha = 10,
+                   center = F, method = 1, randStarts = 20)
+
+tb <- table(res$cluster, covData$Grade) #grade
+rownames(tb) <- paste("assigned cluster", 1:3); tb
+```
+
+
